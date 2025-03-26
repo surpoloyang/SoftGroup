@@ -13,21 +13,24 @@ import torch
 # import gorilla
 
 INV_OBJECT_LABEL = {
-    0: 'ceiling',
-    1: 'floor',
-    2: 'wall',
-    3: 'beam',
-    4: 'column',
-    5: 'window',
-    6: 'door',
-    7: 'chair',
-    8: 'table',
-    9: 'bookcase',
-    10: 'sofa',
-    11: 'board',
-    12: 'clutter',
+    0: 'stem',
+    1: 'leaf',
+    # 0: 'ceiling',
+    # 1: 'floor',
+    # 2: 'wall',
+    # 3: 'beam',
+    # 4: 'column',
+    # 5: 'window',
+    # 6: 'door',
+    # 7: 'chair',
+    # 8: 'table',
+    # 9: 'bookcase',
+    # 10: 'sofa',
+    # 11: 'board',
+    # 12: 'clutter',
 }
-semantic_label_idxs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+semantic_label_idxs = [1, 2]
+# semantic_label_idxs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
 
 def get_parser():
@@ -53,7 +56,7 @@ if __name__ == '__main__':
         os.mkdir(save_dir)
 
     for i, f in enumerate(files):
-        (xyz, rgb, semantic_labels, instance_labels, room_label,
+        (xyz, feature, semantic_labels, instance_labels, room_label,
          scene) = torch.load(f)  # semantic label 0-12 instance_labels 0~instance_num-1 or -100
         print(f'{i + 1}/{len(files)} {scene}')  # 1/len(files) Area_1_conferenceRoom_1
 

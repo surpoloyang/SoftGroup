@@ -139,7 +139,7 @@ def main():
     scan_ids, coords, colors, sem_preds, sem_labels = [], [], [], [], []
     offset_preds, offset_labels, inst_labels, pred_insts, gt_insts = [], [], [], [], []
     panoptic_preds = []
-    _, world_size = get_dist_info()
+    _, world_size = get_dist_info() # 单一GPU时，world_size=1
     progress_bar = tqdm(total=len(dataloader) * world_size, disable=not is_main_process())
     eval_tasks = cfg.model.test_cfg.eval_tasks
     with torch.no_grad():
@@ -177,6 +177,7 @@ def main():
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
             panoptic_eval = PanopticEval(dataset.THING, dataset.STUFF, min_points=eval_min_npoint)
             panoptic_eval.evaluate(panoptic_preds, sem_labels, inst_labels)
+        # 语义分割和offset回归的评估
         if 'semantic' in eval_tasks:
             logger.info('Evaluate semantic segmentation and offset MAE')
             ignore_label = cfg.model.ignore_label

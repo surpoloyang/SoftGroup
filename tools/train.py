@@ -22,7 +22,8 @@ from tqdm import tqdm
 
 def get_args():
     parser = argparse.ArgumentParser('SoftGroup')
-    parser.add_argument('config', type=str, help='path to config file')
+    # parser.add_argument('config', type=str, help='path to config file') #命令行中体现为必须是传入的第一个参数
+    parser.add_argument('--config', type=str, default='configs/softgroup/softgroup_ps_backbone.yaml',help='path to config file') #命令行中体现为必须是传入的第一个参数
     parser.add_argument('--dist', action='store_true', help='run with distributed parallel')
     parser.add_argument('--resume', type=str, help='path to resume from')
     parser.add_argument('--work_dir', type=str, help='working directory')
@@ -45,7 +46,7 @@ def train(epoch, model, optimizer, scaler, train_loader, cfg, logger, writer):
         data_time.update(time.time() - end)
         cosine_lr_after_step(optimizer, cfg.optimizer.lr, epoch - 1, cfg.step_epoch, cfg.epochs)
         with torch.cuda.amp.autocast(enabled=cfg.fp16):
-            loss, log_vars = model(batch, return_loss=True)
+            loss, log_vars = model(batch, return_loss=True) # batch是一个字典，包含了所有的输入数据(scan_id, coord, coord_float, feat, semantic_label, instance_label, inst_num, inst_pointnum, inst_cls, pt_offset_label)
 
         # meter_dict
         for k, v in log_vars.items():
@@ -88,7 +89,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
     all_sem_preds, all_sem_labels, all_offset_preds, all_offset_labels = [], [], [], []
     all_inst_labels, all_pred_insts, all_gt_insts = [], [], []
     all_panoptic_preds = []
-    _, world_size = get_dist_info()
+    _, world_size = get_dist_info() # 单一GPU时，world_size=1
     progress_bar = tqdm(total=len(val_loader) * world_size, disable=not is_main_process())
     val_set = val_loader.dataset
     eval_tasks = cfg.model.test_cfg.eval_tasks
@@ -114,6 +115,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
                 all_gt_insts.append(res['gt_instances'])
             if 'panoptic' in eval_tasks:
                 all_panoptic_preds.append(res['panoptic_preds'])
+        # TODO: 添加mCov, mWCov
         if 'instance' in eval_tasks:
             logger.info('Evaluate instance segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
@@ -131,6 +133,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             eval_res = panoptic_eval.evaluate(all_panoptic_preds, all_sem_labels, all_inst_labels)
             writer.add_scalar('val/PQ', eval_res[0], epoch)
             logger.info('PQ: {:.1f}'.format(eval_res[0]))
+        # 语义分割和offset回归的评估
         if 'semantic' in eval_tasks:
             logger.info('Evaluate semantic segmentation and offset MAE')
             miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
@@ -158,7 +161,7 @@ def main():
         cfg.work_dir = args.work_dir
     else:
         cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0])
-    os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
+    os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)   # './work_dirs/softgroup_s3dis_bacbone_fold5'
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file)
@@ -185,12 +188,17 @@ def main():
     optimizer = build_optimizer(model, cfg.optimizer)
 
     # pretrain, resume
+    # load_checkpoint函数会自动覆盖传入的model和optimizer，只return epoch
     start_epoch = 1
     if args.resume:
         logger.info(f'Resume from {args.resume}')
         start_epoch = load_checkpoint(args.resume, logger, model, optimizer=optimizer)
+        
     elif cfg.pretrain:
+        # 如果是backbone预训练，需要在这里加载hais的预训练模型: hais_ckpt_spconv2.pth
+        # 如果是整个模型训练，需要在这里加载backbone的预训练模型: *backbone/latest.pth
         logger.info(f'Load pretrain from {cfg.pretrain}')
+        # TODO
         load_checkpoint(cfg.pretrain, logger, model)
 
     # train and val

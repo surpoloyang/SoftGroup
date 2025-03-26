@@ -77,6 +77,12 @@ dataset/s3dis/val_gt
 dataset/s3dis/preprocess_sample
 dataset/s3dis/Stanford3dDataset_v1.2
 
+dataset/ps/preprocess
+dataset/ps/val_gt
+dataset/ps/preprocess_sample
+dataset/ps/preprocess_split
+dataset/ps/s3dis_fullfeature_annoted
+
 dataset/stpls3d/train
 dataset/stpls3d/val
 dataset/stpls3d/Synthetic_v3_InstanceSegmentation

@@ -1,4 +1,5 @@
 import math
+import os
 import os.path as osp
 from glob import glob
 
@@ -39,6 +40,7 @@ class CustomDataset(Dataset):
 
     def get_filenames(self):
         filenames = glob(osp.join(self.data_root, self.prefix, '*' + self.suffix))
+
         assert len(filenames) > 0, 'Empty dataset.'
         filenames = sorted(filenames * self.repeat)
         return filenames

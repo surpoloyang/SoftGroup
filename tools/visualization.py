@@ -87,54 +87,59 @@ COLOR_DETECTRON2 = np.array(
 
 SEMANTIC_IDXS = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
 SEMANTIC_NAMES = np.array([
-    'wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf',
-    'picture', 'counter', 'desk', 'curtain', 'refridgerator', 'shower curtain', 'toilet', 'sink',
-    'bathtub', 'otherfurniture'
+    # 'wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf',
+    # 'picture', 'counter', 'desk', 'curtain', 'refridgerator', 'shower curtain', 'toilet', 'sink',
+    # 'bathtub', 'otherfurniture'
+    'stem', 'leaf'
 ])
 CLASS_COLOR = {
     'unannotated': [0, 0, 0],
-    'floor': [143, 223, 142],
-    'wall': [171, 198, 230],
-    'cabinet': [0, 120, 177],
-    'bed': [255, 188, 126],
-    'chair': [189, 189, 57],
-    'sofa': [144, 86, 76],
-    'table': [255, 152, 153],
-    'door': [222, 40, 47],
-    'window': [197, 176, 212],
-    'bookshelf': [150, 103, 185],
-    'picture': [200, 156, 149],
-    'counter': [0, 190, 206],
-    'desk': [252, 183, 210],
-    'curtain': [219, 219, 146],
-    'refridgerator': [255, 127, 43],
-    'bathtub': [234, 119, 192],
-    'shower curtain': [150, 218, 228],
-    'toilet': [0, 160, 55],
-    'sink': [110, 128, 143],
-    'otherfurniture': [80, 83, 160]
+    'stem': [143, 223, 142],
+    'leaf': [171, 198, 230],
+    # 'floor': [143, 223, 142],
+    # 'wall': [171, 198, 230],
+    # 'cabinet': [0, 120, 177],
+    # 'bed': [255, 188, 126],
+    # 'chair': [189, 189, 57],
+    # 'sofa': [144, 86, 76],
+    # 'table': [255, 152, 153],
+    # 'door': [222, 40, 47],
+    # 'window': [197, 176, 212],
+    # 'bookshelf': [150, 103, 185],
+    # 'picture': [200, 156, 149],
+    # 'counter': [0, 190, 206],
+    # 'desk': [252, 183, 210],
+    # 'curtain': [219, 219, 146],
+    # 'refridgerator': [255, 127, 43],
+    # 'bathtub': [234, 119, 192],
+    # 'shower curtain': [150, 218, 228],
+    # 'toilet': [0, 160, 55],
+    # 'sink': [110, 128, 143],
+    # 'otherfurniture': [80, 83, 160]
 }
 SEMANTIC_IDX2NAME = {
-    1: 'wall',
-    2: 'floor',
-    3: 'cabinet',
-    4: 'bed',
-    5: 'chair',
-    6: 'sofa',
-    7: 'table',
-    8: 'door',
-    9: 'window',
-    10: 'bookshelf',
-    11: 'picture',
-    12: 'counter',
-    14: 'desk',
-    16: 'curtain',
-    24: 'refridgerator',
-    28: 'shower curtain',
-    33: 'toilet',
-    34: 'sink',
-    36: 'bathtub',
-    39: 'otherfurniture'
+    1: 'stem',
+    2: 'leaf',
+    # 1: 'wall',
+    # 2: 'floor',
+    # 3: 'cabinet',
+    # 4: 'bed',
+    # 5: 'chair',
+    # 6: 'sofa',
+    # 7: 'table',
+    # 8: 'door',
+    # 9: 'window',
+    # 10: 'bookshelf',
+    # 11: 'picture',
+    # 12: 'counter',
+    # 14: 'desk',
+    # 16: 'curtain',
+    # 24: 'refridgerator',
+    # 28: 'shower curtain',
+    # 33: 'toilet',
+    # 34: 'sink',
+    # 36: 'bathtub',
+    # 39: 'otherfurniture'
 }
 
 
@@ -269,7 +274,7 @@ if __name__ == '__main__':
         '--task',
         help='input/semantic_gt/semantic_pred/offset_semantic_pred/instance_gt/instance_pred',
         default='instance_pred')
-    parser.add_argument('--out', help='output point cloud file in FILE.ply format')
+    parser.add_argument('--out', default='./visual', help='output point cloud file in FILE.ply format')
     opt = parser.parse_args()
 
     xyz, rgb = get_coords_color(opt)

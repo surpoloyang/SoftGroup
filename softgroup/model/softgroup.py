@@ -104,6 +104,7 @@ class SoftGroup(nn.Module):
                     m.eval()
 
     def forward(self, batch, return_loss=False):
+        # batch是一个字典，包含了所有的输入数据(scan_id, coord, coord_float, feat, semantic_label, instance_label, inst_num, inst_pointnum, inst_cls, pt_offset_label)
         if return_loss:
             return self.forward_train(**batch)
         else:
