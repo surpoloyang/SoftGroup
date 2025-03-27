@@ -198,7 +198,7 @@ def main():
         # 如果是backbone预训练，需要在这里加载hais的预训练模型: hais_ckpt_spconv2.pth
         # 如果是整个模型训练，需要在这里加载backbone的预训练模型: *backbone/latest.pth
         logger.info(f'Load pretrain from {cfg.pretrain}')
-        # TODO
+        # TODO：如果是加载hais，为什么model还是Softgroup呢？能对上嘛？
         load_checkpoint(cfg.pretrain, logger, model)
 
     # train and val
