@@ -45,7 +45,7 @@ data:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
-      min_npoint: 5000
+      min_npoint: 4000
   test:
     type: 'ps'
     data_root: 'dataset/ps/preprocess_split'
@@ -56,12 +56,12 @@ data:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
-      min_npoint: 5000
+      min_npoint: 4000
 
 dataloader:
   train:
-    batch_size: 4
-    num_workers: 4
+    batch_size: 5
+    num_workers: 5
   test:
     batch_size: 1
     num_workers: 1

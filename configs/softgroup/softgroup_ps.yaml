@@ -2,17 +2,17 @@ model:
   channels: 16
   num_blocks: 7
   semantic_classes: 2
-  instance_classes: 2
+  instance_classes: 1
   sem2ins_classes: [0]
   semantic_only: False
   semantic_weight: [0.187, 0.813]
   ignore_label: -100
-  with_coords: False
+  # with_coords: False
   grouping_cfg:
     score_thr: 0.2
     radius: 0.04
     mean_active: 300
-    class_numpoint_mean: [765., 344.]
+    class_numpoint_mean: [-1., 344.]
     npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0]
 
@@ -30,14 +30,14 @@ model:
     x4_split: False
     cls_score_thr: 0.001
     mask_score_thr: -0.5
-    min_npoint: 50
+    min_npoint: 20
     eval_tasks: ['semantic', 'instance']
-  fixed_modules: []
+  fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
 
 data:
   train:
     type: 'ps'
-    data_root: 'dataset/ps'
+    data_root: 'dataset/ps/preprocess_split'
     prefix: 'train'
     suffix: '_inst_nostuff.pth'
     training: True
@@ -46,23 +46,23 @@ data:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
-      min_npoint: 5000
+      min_npoint: 4000
   test:
     type: 'ps'
-    data_root: 'dataset/ps'
-    prefix: 'val'
+    data_root: 'dataset/ps/preprocess_split'
+    prefix: 'test'
     suffix: '_inst_nostuff.pth'
     training: False
     voxel_cfg:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
-      min_npoint: 5000
+      min_npoint: 4000
 
 dataloader:
   train:
-    batch_size: 4
-    num_workers: 4
+    batch_size: 5
+    num_workers: 5
   test:
     batch_size: 1
     num_workers: 1
@@ -74,8 +74,8 @@ optimizer:
 eval_min_npoint: 10
 
 fp16: False
-epochs: 108
+epochs: 128
 step_epoch: 20
 save_freq: 4
-pretrain: './work_dirs/softgroup_ps_backbone/latest.pth'
-work_dir: ''
+pretrain: './work_dirs/softgroup_ps_backbone/epoch_84.pth'
+work_dir: 'work_dirs/softgroup_ps'
