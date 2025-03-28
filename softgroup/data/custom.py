@@ -113,19 +113,22 @@ class CustomDataset(Dataset):
         return np.matmul(xyz, m)
 
     def crop(self, xyz, step=32):
+        """
+        如果点云数量超过最大点数，则进行裁剪，否则返回原始点云
+        """
         xyz_offset = xyz.copy()
         valid_idxs = xyz_offset.min(1) >= 0
-        assert valid_idxs.sum() == xyz.shape[0]
-        spatial_shape = np.array([self.voxel_cfg.spatial_shape[1]] * 3)
-        room_range = xyz.max(0) - xyz.min(0)
+        assert valid_idxs.sum() == xyz.shape[0] # 确保所有点的坐标都大于等于0
+        spatial_shape = np.array([self.voxel_cfg.spatial_shape[1]] * 3) # (512, 512, 512)
+        room_range = xyz.max(0) - xyz.min(0)    # 确定点云的范围
         while (valid_idxs.sum() > self.voxel_cfg.max_npoint):
             step_temp = step
             if valid_idxs.sum() > 1e6:
                 step_temp = step * 2
-            offset = np.clip(spatial_shape - room_range + 0.001, None, 0) * np.random.rand(3)
+            offset = np.clip(spatial_shape - room_range + 0.001, None, 0) * np.random.rand(3)   # 确保偏移量spatial_shape - room_range + 0.001小于等于0
             xyz_offset = xyz + offset
-            valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < spatial_shape).sum(1) == 3)
-            spatial_shape[:2] -= step_temp
+            valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < spatial_shape).sum(1) == 3)  # 重新计算有效索引。有效索引是指那些坐标为正数且小于空间形状的点
+            spatial_shape[:2] -= step_temp  # 减小空间形状的前两个维度
         return xyz_offset, valid_idxs
 
     def getCroppedInstLabel(self, instance_label, valid_idxs):
@@ -141,12 +144,16 @@ class CustomDataset(Dataset):
         xyz_middle = self.dataAugment(xyz, True, True, True, aug_prob)
         xyz = xyz_middle * self.voxel_cfg.scale
         if np.random.rand() < aug_prob:
+            # 对点云进行弹性变换，增强点云模型的鲁棒性
             xyz = self.elastic(xyz, 6, 40.)
             xyz = self.elastic(xyz, 20, 160.)
         # xyz_middle = xyz / self.voxel_cfg.scale
         xyz = xyz - xyz.min(0)
         max_tries = 5
         while (max_tries > 0):
+            # 尝试将点云裁剪到最大点数与最小点数之间，并进行随机偏移
+            # 如果裁剪后的点云数量小于最小点数，则重新裁剪
+            # 如果裁剪后的点云数量大于最大点数，则继续裁剪
             xyz_offset, valid_idxs = self.crop(xyz)
             if valid_idxs.sum() >= self.voxel_cfg.min_npoint:
                 xyz = xyz_offset
@@ -174,6 +181,7 @@ class CustomDataset(Dataset):
         scan_id = osp.basename(filename).replace(self.suffix, '')
         data = self.load(filename)
         data = self.transform_train(*data) if self.training else self.transform_test(*data)
+        # TODO 为什么会返回None
         if data is None:
             return None
         xyz, xyz_middle, rgb, semantic_label, instance_label = data

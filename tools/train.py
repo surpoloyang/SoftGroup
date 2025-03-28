@@ -22,8 +22,8 @@ from tqdm import tqdm
 
 def get_args():
     parser = argparse.ArgumentParser('SoftGroup')
-    # parser.add_argument('config', type=str, help='path to config file') #命令行中体现为必须是传入的第一个参数
-    parser.add_argument('--config', type=str, default='configs/softgroup/softgroup_ps_backbone.yaml',help='path to config file') #命令行中体现为必须是传入的第一个参数
+    parser.add_argument('config', type=str, help='path to config file') #命令行中体现为必须是传入的第一个参数
+    # parser.add_argument('--config', type=str, default='configs/softgroup/softgroup_ps_backbone.yaml',help='path to config file') #命令行中体现为必须是传入的第一个参数
     parser.add_argument('--dist', action='store_true', help='run with distributed parallel')
     parser.add_argument('--resume', type=str, help='path to resume from')
     parser.add_argument('--work_dir', type=str, help='working directory')
