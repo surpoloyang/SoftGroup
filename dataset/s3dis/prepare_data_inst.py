@@ -62,13 +62,20 @@ def read_s3dis_format(area_id: str,
     room_dir = osp.join(data_root, area_id, room_name)  # s3dis/Area_1/conferenceRoom_1
     raw_path = osp.join(room_dir, f'{room_name}.txt')   # s3dis/Area_1/conferenceRoom_1/conferenceRoom_1.txt
 
-    room_ver = pd.read_csv(raw_path, sep=' ', header=None).values   # 整个room的点云数据
+    # 先用pandas读取，方便数据清洗
+    df = pd.read_csv(raw_path, sep=' ', header=None, dtype=str)
+    # 尝试将前三列和3~5列转为float，无法转的行直接删除
+    for col in range(6):
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.dropna(subset=[0, 1, 2, 3, 4, 5])  # 删除xyz和rgb有异常的行
+    room_ver = df.values
     xyz = np.ascontiguousarray(room_ver[:, 0:3], dtype='float32')
     rgb = np.ascontiguousarray(room_ver[:, 3:6], dtype='uint8')
     if not label_out:
         return xyz, rgb
     n_ver = len(room_ver)
     del room_ver
+    del df
     # 建立原始点云的KD树
     nn = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(xyz)
     semantic_labels = np.zeros((n_ver, ), dtype='int64')
@@ -102,7 +109,7 @@ def read_s3dis_format(area_id: str,
 def get_parser():
     parser = argparse.ArgumentParser(description='s3dis data prepare')
     parser.add_argument(
-        '--data-root', type=str, default='./Stanford3dDataset_v1.2', help='root dir save data')
+        '--data-root', type=str, default='./Stanford3dDataset_v1.2_Aligned_Version', help='root dir save data')
     parser.add_argument(
         '--save-dir', type=str, default='./preprocess', help='directory save processed data')
     parser.add_argument(
@@ -159,6 +166,12 @@ if __name__ == '__main__':
         except:  # noqa
             pass
         for room_name in room_name_list:
+            # 跳过不符合命名格式的文件/目录
+            if room_name.startswith('.') or '_' not in room_name:
+                # if args.verbose:
+                print(f"跳过无效的房间名称: {room_name}")
+                continue
+                
             scene = f'{area_id}_{room_name}'
             if args.verbose:
                 print(f'processing: {scene}')

@@ -28,7 +28,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description='downsample ps_s3dis by voxelization')
     parser.add_argument(
         '--data-dir', type=str, default='./preprocess', help='directory save processed data')
-    parser.add_argument('--ratio', type=float, default=0.25, help='random downsample ratio')
+    parser.add_argument('--ratio', type=float, default=0.5, help='random downsample ratio')
     parser.add_argument(
         '--voxel-size',
         type=float,

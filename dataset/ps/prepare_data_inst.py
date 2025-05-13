@@ -53,7 +53,7 @@ def read_s3dis_format(area_id: str,
                       room_name: str,
                       data_root: str = './',
                       label_out: bool = True,
-                      verbose: bool = False):
+                      verbose: bool = True):
     r"""
     extract data from a room folder
     """
