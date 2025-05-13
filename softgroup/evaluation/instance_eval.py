@@ -43,8 +43,8 @@ class ScanNetEval(object):
         dist_confs = [self.distance_confs[0]]
 
         # results: class x iou
-        ap = np.zeros((len(dist_threshes), len(self.eval_class_labels), len(ious)), np.float)
-        rc = np.zeros((len(dist_threshes), len(self.eval_class_labels), len(ious)), np.float)
+        ap = np.zeros((len(dist_threshes), len(self.eval_class_labels), len(ious)), np.float32)
+        rc = np.zeros((len(dist_threshes), len(self.eval_class_labels), len(ious)), np.float32)
         for di, (min_region_size, distance_thresh,
                  distance_conf) in enumerate(zip(min_region_sizes, dist_threshes, dist_confs)):
             for oi, iou_th in enumerate(ious):
@@ -77,7 +77,7 @@ class ScanNetEval(object):
 
                         cur_true = np.ones(len(gt_instances))
                         cur_score = np.ones(len(gt_instances)) * (-float('inf'))
-                        cur_match = np.zeros(len(gt_instances), dtype=np.bool)
+                        cur_match = np.zeros(len(gt_instances), dtype=bool)
                         # collect matches
                         for (gti, gt) in enumerate(gt_instances):
                             found_match = False
@@ -149,6 +149,7 @@ class ScanNetEval(object):
                         # sorting and cumsum
                         score_arg_sort = np.argsort(y_score)
                         y_score_sorted = y_score[score_arg_sort]
+                        # ❗TODO 查看y_true是否为空，或者是否是score_arg_sort的问题导致y_true_sorted_cumsum为空
                         y_true_sorted = y_true[score_arg_sort]
                         y_true_sorted_cumsum = np.cumsum(y_true_sorted)
 
@@ -158,7 +159,7 @@ class ScanNetEval(object):
 
                         # prepare precision recall
                         num_examples = len(y_score_sorted)
-                        num_true_examples = y_true_sorted_cumsum[-1]
+                        num_true_examples = y_true_sorted_cumsum[-1] if len(y_true_sorted_cumsum) > 0 else 0
                         precision = np.zeros(num_prec_recall)
                         recall = np.zeros(num_prec_recall)
 

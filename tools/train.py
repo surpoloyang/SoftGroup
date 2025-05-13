@@ -159,8 +159,10 @@ def main():
     # work_dir & logger
     if args.work_dir:
         cfg.work_dir = args.work_dir
-    else:
+    elif not cfg.work_dir:
         cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0])
+    else:
+        pass
     os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)   # './work_dirs/softgroup_s3dis_bacbone_fold5'
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')

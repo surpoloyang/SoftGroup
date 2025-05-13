@@ -370,7 +370,7 @@ class SoftGroup(nn.Module):
             output = self.input_conv(input)
             output = self.unet(output)
             output = self.output_layer(output)
-            output_feats = output.features
+            output_feats = output.features  # TODO .feature是怎么来的
             if not lvl_fusion:
                 output_feats = output_feats[input_map.long()]
 
@@ -568,7 +568,8 @@ class SoftGroup(nn.Module):
                 score_pred = cur_cls_scores * cur_iou_scores.clamp(0, 1)
                 mask_pred = torch.zeros((num_instances, num_points), dtype=torch.int, device='cuda')
                 mask_inds = cur_mask_scores > self.test_cfg.mask_score_thr
-                cur_proposals_idx = proposals_idx[mask_inds].long()
+                cur_proposals_idx = proposals_idx[mask_inds.to(proposals_idx.device)].long()
+                # cur_proposals_idx = proposals_idx[mask_inds.to('cuda')].long()
                 mask_pred[cur_proposals_idx[:, 0], cur_proposals_idx[:, 1]] = 1
 
                 # filter low score instance
