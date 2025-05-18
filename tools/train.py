@@ -18,6 +18,7 @@ from softgroup.util import (AverageMeter, SummaryWriter, build_optimizer, checkp
                             is_multiple, is_power2, load_checkpoint)
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
+import numpy as np
 
 
 def get_args():
@@ -115,7 +116,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
                 all_gt_insts.append(res['gt_instances'])
             if 'panoptic' in eval_tasks:
                 all_panoptic_preds.append(res['panoptic_preds'])
-        # TODO: 添加mCov, mWCov
+        
         if 'instance' in eval_tasks:
             logger.info('Evaluate instance segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
@@ -124,8 +125,21 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             writer.add_scalar('val/AP', eval_res['all_ap'], epoch)
             writer.add_scalar('val/AP_50', eval_res['all_ap_50%'], epoch)
             writer.add_scalar('val/AP_25', eval_res['all_ap_25%'], epoch)
+            # 添加更多指标记录
+            writer.add_scalar('val/AR', eval_res['all_rc'], epoch)
+            writer.add_scalar('val/F1', eval_res.get('all_f1', 0), epoch)
+            writer.add_scalar('val/MCov', eval_res.get('MCov', 0), epoch)
+            writer.add_scalar('val/MWCov', eval_res.get('MWCov', 0), epoch)
+            
+            # 日志输出更多指标
+            # logger.info('Leaf Instance Segmentation:')
             logger.info('AP: {:.3f}. AP_50: {:.3f}. AP_25: {:.3f}'.format(
                 eval_res['all_ap'], eval_res['all_ap_50%'], eval_res['all_ap_25%']))
+            logger.info('AR: {:.3f}. F1: {:.3f}'.format(
+                eval_res['all_rc'], eval_res.get('all_f1', 0)))
+            logger.info('MCov: {:.3f}. MWCov: {:.3f}'.format(
+                eval_res.get('MCov', 0), eval_res.get('MWCov', 0)))
+            
         if 'panoptic' in eval_tasks:
             logger.info('Evaluate panoptic segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
@@ -133,18 +147,81 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             eval_res = panoptic_eval.evaluate(all_panoptic_preds, all_sem_labels, all_inst_labels)
             writer.add_scalar('val/PQ', eval_res[0], epoch)
             logger.info('PQ: {:.1f}'.format(eval_res[0]))
-        # 语义分割和offset回归的评估
+            
+        # 语义分割评估，添加精度和召回率
         if 'semantic' in eval_tasks:
             logger.info('Evaluate semantic segmentation and offset MAE')
-            miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
-                                          logger)
-            acc = evaluate_semantic_acc(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
-                                        logger)
-            mae = evaluate_offset_mae(all_offset_preds, all_offset_labels, all_inst_labels,
-                                      cfg.model.ignore_label, logger)
+            ignore_label = cfg.model.ignore_label
+            # 计算mIoU
+            miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, ignore_label, logger)
+            # 计算准确率
+            acc = evaluate_semantic_acc(all_sem_preds, all_sem_labels, ignore_label, logger)
+            # 计算偏移MAE
+            mae = evaluate_offset_mae(all_offset_preds, all_offset_labels, all_inst_labels, ignore_label, logger)
+            
+            # 计算语义分割的精度和召回率
+            # 将所有预测和标签合并为一维数组
+            all_preds = np.concatenate([pred.reshape(-1) for pred in all_sem_preds])
+            all_labels = np.concatenate([label.reshape(-1) for label in all_sem_labels])
+            
+            # 忽略标签
+            mask = (all_labels != ignore_label)
+            all_preds = all_preds[mask]
+            all_labels = all_labels[mask]
+            
+            # 获取类别数量
+            num_classes = cfg.model.semantic_classes
+            
+            # 类别精度和召回率
+            precision_per_class = np.zeros(num_classes)
+            recall_per_class = np.zeros(num_classes)
+            f1_per_class = np.zeros(num_classes)
+            iou_per_class = np.zeros(num_classes)
+            
+            # 对每个类别计算精度和召回率
+            for i in range(num_classes):
+                pred_i = (all_preds == i)
+                gt_i = (all_labels == i)
+                tp = np.sum(pred_i & gt_i)
+                fp = np.sum(pred_i & ~gt_i)
+                fn = np.sum(~pred_i & gt_i)
+                
+                # 避免除以零
+                precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+                recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+                f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+                iou = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
+                
+                precision_per_class[i] = precision
+                recall_per_class[i] = recall
+                f1_per_class[i] = f1
+                iou_per_class[i] = iou
+            
+            # 计算平均值
+            mean_precision = np.mean(precision_per_class)
+            mean_recall = np.mean(recall_per_class)
+            mean_f1 = np.mean(f1_per_class)
+            
+            # 记录TensorBoard
             writer.add_scalar('val/mIoU', miou, epoch)
             writer.add_scalar('val/Acc', acc, epoch)
-            writer.add_scalar('val/Offset MAE', mae, epoch)
+            writer.add_scalar('val/Offset_MAE', mae, epoch)
+            writer.add_scalar('val/mPrecision', mean_precision, epoch)
+            writer.add_scalar('val/mRecall', mean_recall, epoch)
+            writer.add_scalar('val/mF1', mean_f1, epoch)
+            
+            # 输出日志
+            logger.info('Semantic mIoU: {:.1f}'.format(miou))
+            logger.info('Semantic Acc: {:.1f}'.format(acc))
+            logger.info('Semantic mPrecision: {:.1f}'.format(mean_precision * 100))
+            logger.info('Semantic mRecall: {:.1f}'.format(mean_recall * 100))
+            logger.info('Semantic mF1: {:.1f}'.format(mean_f1 * 100))
+            logger.info('Offset MAE: {:.3f}'.format(mae))
+            
+            # 输出每个类别的指标
+            for i in range(num_classes):
+                logger.info('Class {}: IoU: {:.1f}, Precision: {:.1f}, Recall: {:.1f}, F1: {:.1f}'.format(
+                    i, iou_per_class[i] * 100, precision_per_class[i] * 100, recall_per_class[i] * 100, f1_per_class[i] * 100))
 
 
 def main():
@@ -167,6 +244,20 @@ def main():
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file)
+    
+    # 自动检测数据是否有颜色特征（RGB），并设置use_color
+    if 'use_color' not in cfg.model:
+        # 尝试根据数据自动推断
+        # 这里假设train_set的feat shape为[N, C]，C=3为RGB，否则为无RGB
+        # 先构建数据集
+        train_set = build_dataset(cfg.data.train, logger)
+        sample = train_set[0]
+        feat_dim = sample['feat'].shape[1] if 'feat' in sample and len(sample['feat'].shape) == 2 else 0
+        cfg.model.use_color = (feat_dim == 3)
+        logger.info(f"'use_color' not specified in config, auto detected: {cfg.model.use_color}")
+    else:
+        logger.info(f"'use_color' specified in config: {cfg.model.use_color}")
+
     logger.info(f'Config:\n{cfg_txt}')
     logger.info(f'Distributed: {args.dist}')
     logger.info(f'Mix precision training: {cfg.fp16}')
@@ -180,7 +271,9 @@ def main():
     scaler = torch.cuda.amp.GradScaler(enabled=cfg.fp16)
 
     # data
-    train_set = build_dataset(cfg.data.train, logger)
+    # 如果train_set已提前构建，则复用，否则重新构建
+    if 'train_set' not in locals():
+        train_set = build_dataset(cfg.data.train, logger)
     val_set = build_dataset(cfg.data.test, logger)
     train_loader = build_dataloader(
         train_set, training=True, dist=args.dist, **cfg.dataloader.train)

@@ -32,9 +32,19 @@ class SoftGroup(nn.Module):
                  instance_voxel_cfg=None,
                  train_cfg=None,
                  test_cfg=None,
-                 fixed_modules=[]):
+                 fixed_modules=[],
+                 use_color=True):  # 新增use_color参数，默认True
         super().__init__()
+        self.use_color = use_color
         self.in_channels = in_channels
+        # 动态调整输入通道
+        if self.use_color:
+            feat_channels = in_channels  # 通常为3 (RGB)
+        else:
+            feat_channels = 0
+        if with_coords:
+            feat_channels += 3  # xyz
+        self.feat_channels = feat_channels
         self.channels = channels
         self.num_blocks = num_blocks
         self.semantic_only = semantic_only
@@ -54,12 +64,9 @@ class SoftGroup(nn.Module):
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         # backbone
-        if with_coords:
-            in_channels += 3
-            self.in_channels += 3
         self.input_conv = spconv.SparseSequential(
             spconv.SubMConv3d(
-                in_channels, channels, kernel_size=3, padding=1, bias=False, indice_key='subm1'))
+                feat_channels, channels, kernel_size=3, padding=1, bias=False, indice_key='subm1'))
         block_channels = [channels * (i + 1) for i in range(num_blocks)]
         self.unet = UBlock(block_channels, norm_fn, 2, block, indice_key_id=1)
         self.output_layer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
@@ -115,9 +122,14 @@ class SoftGroup(nn.Module):
                       semantic_labels, instance_labels, instance_pointnum, instance_cls,
                       pt_offset_labels, spatial_shape, batch_size, **kwargs):
         losses = {}
+        # 动态拼接输入特征
+        input_feats = []
+        if self.use_color:
+            input_feats.append(feats)
         if self.with_coords:
-            feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = voxelization(feats, p2v_map)
+            input_feats.append(coords_float)
+        feats_cat = torch.cat(input_feats, 1) if len(input_feats) > 1 else input_feats[0]
+        voxel_feats = voxelization(feats_cat, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats = self.forward_backbone(input, v2p_map)
 
@@ -301,10 +313,15 @@ class SoftGroup(nn.Module):
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
                      semantic_labels, instance_labels, pt_offset_labels, spatial_shape, batch_size,
                      scan_ids, **kwargs):
-        color_feats = feats
+        # 动态拼接输入特征
+        color_feats = feats if self.use_color else None
+        input_feats = []
+        if self.use_color:
+            input_feats.append(feats)
         if self.with_coords:
-            feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = voxelization(feats, p2v_map)
+            input_feats.append(coords_float)
+        feats_cat = torch.cat(input_feats, 1) if len(input_feats) > 1 else input_feats[0]
+        voxel_feats = voxelization(feats_cat, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
 
         # lvl_fusion directly use output point as level 1 for pyramid map for fast inference
@@ -324,9 +341,9 @@ class SoftGroup(nn.Module):
                     semantic_labels=semantic_labels.cpu().numpy(),
                     instance_labels=instance_labels.cpu().numpy()))
         if 'semantic' in self.test_cfg.eval_tasks:
-            point_wise_results = self.get_point_wise_results(coords_float, color_feats,
-                                                             semantic_preds, pt_offsets,
-                                                             pt_offset_labels, v2p_map, lvl_fusion)
+            point_wise_results = self.get_point_wise_results(
+                coords_float, color_feats, semantic_preds, pt_offsets,
+                pt_offset_labels, v2p_map, lvl_fusion)
             ret.update(point_wise_results)
         if not self.semantic_only:
             if 'instance' in self.test_cfg.eval_tasks or 'panoptic' in self.test_cfg.eval_tasks:
@@ -530,7 +547,7 @@ class SoftGroup(nn.Module):
             offset_preds = offset_preds[v2p_map.long()]
         return dict(
             coords_float=coords_float.cpu().numpy(),
-            color_feats=color_feats.cpu().numpy(),
+            color_feats=color_feats.cpu().numpy() if color_feats is not None else None,
             semantic_preds=semantic_preds.cpu().numpy(),
             offset_preds=offset_preds.cpu().numpy(),
             offset_labels=offset_labels.cpu().numpy())

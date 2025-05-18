@@ -1,0 +1,83 @@
+model:
+  channels: 16
+  num_blocks: 7
+  semantic_classes: 2
+  instance_classes: 2 # the number of semantic classes considered for instance segmentation
+  sem2ins_classes: [0] # use this when you directly use semantic segmentation results as instance segmentation results for specified classes
+  semantic_only: False
+  semantic_weight: [0.187, 0.813]
+  ignore_label: -100
+  # with_coords: False
+  use_color: False
+
+  grouping_cfg:
+    score_thr: 0.2
+    radius: 0.01
+    mean_active: 300
+    class_numpoint_mean: [765., 344.]
+    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    ignore_classes: [0]
+
+  instance_voxel_cfg:
+    scale: 50
+    spatial_shape: 20
+
+  train_cfg:
+    max_proposal_num: 400
+    pos_iou_thr: 0.5
+    match_low_quality: True
+    min_pos_thr: 0.1
+
+  test_cfg:
+    x4_split: False
+    cls_score_thr: 0.001
+    mask_score_thr: -0.5
+    min_npoint: 20
+    eval_tasks: ['semantic', 'instance']
+  fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
+
+data:
+  train:
+    type: 'ps'
+    data_root: 'dataset/ps/preprocess_split'
+    prefix: 'train'
+    suffix: '_inst_nostuff.pth'
+    training: True
+    repeat: 20
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 4000
+  test:
+    type: 'ps'
+    data_root: 'dataset/ps/preprocess_split'
+    prefix: 'test'
+    suffix: '_inst_nostuff.pth'
+    training: False
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 4000
+
+dataloader:
+  train:
+    batch_size: 5
+    num_workers: 12
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'Adam'
+  lr: 0.004
+
+eval_min_npoint: 10
+
+fp16: False
+epochs: 50
+step_epoch: 20
+save_freq: 10
+pretrain: './work_dirs/softgroup_ps_backbone_nocolor_trial1/latest.pth'
+work_dir: 'work_dirs/softgroup_ps_nocolor_trial1'
